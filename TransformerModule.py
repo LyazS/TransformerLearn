@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
-from .tr_utils import clones, LayerNorm,ResidualConnection
+from .tr_utils import clones, LayerNorm, ResidualConnection
 
 
 class EncoderDecoder(nn.Module):
@@ -48,7 +48,7 @@ class EncoderDecoder(nn.Module):
         tgt_mask：目标输入mask
         """
         out_enc = self.encode(src, src_mask)
-        out_dec = self.decode(tgt, tgt_mask)
+        out_dec = self.decode(out_enc, src_mask, tgt, tgt_mask)
         return out_dec
 
 
@@ -77,10 +77,21 @@ class Encoder(nn.Module):
 
 
 class EncoderLayer(nn.Module):
-    def __init__(self,size,attn,fc,dropout):
+    def __init__(self, size, attn, fc, dropout, N=2):
         """
         size：
         attn：注意力层，可以是多头注意力
         fc：线性层
         dropout：～
+        N：多少层编码层，暂时为2，要在forward里改
         """
+        super().__init__()
+        self.attn = attn
+        self.size = size
+        self.fc = fc
+        self.sublayer = clones(ResidualConnection(size, dropout), N)
+
+    def forward(self, x, mask):
+        x = self.sublayer[0](x, lambda x: self.attn(x, x, x, mask))
+        out = self.sublayer[1](x, self.fc)
+        return out
